@@ -3,13 +3,14 @@ import requests
 import time
 import threading
 from collections import deque
+import statistics
 
 app = Flask(__name__)
 
 # =========================================================
 # 💾 Bộ nhớ tạm – giữ VÔ HẠN PHIÊN (không xóa)
 # =========================================================
-history = deque()  # không giới hạn maxlen
+history = deque()
 totals = deque()
 win_log = deque()
 
@@ -23,113 +24,168 @@ last_data = {
     "du_doan": "Đang khởi động...",
     "do_tin_cay": 0,
     "pattern": "",
-    "id": "biios2502"
+    "id": "độc quyền "
 }
 
 # =========================================================
-# 🔹 10 Thuật toán soi cầu nâng cao Pentter AI Mix (deterministic)
+# 🔹AI TRÍ TUE 2025 BẢN VIP PRO CỦA TUẤN
 # =========================================================
+def ai1_tanso(history, totals):
+    if len(history) < 6: return {"du_doan": "Tài", "do_tin_cay": 70}
+    t = history[-6:].count("Tài")
+    x = history[-6:].count("Xỉu")
+    if t > x: return {"du_doan": "Xỉu", "do_tin_cay": 88}
+    elif x > t: return {"du_doan": "Tài", "do_tin_cay": 68}
+    else: return {"du_doan": history[-1], "do_tin_cay": 80}
 
-def algo_v1_basic(history, totals, win_log):
-    if len(history) < 2:
-        return {"du_doan": "Đang khởi tạo...", "do_tin_cay": 0}
-    return {"du_doan": "Tài" if history[-1] == "Xỉu" else "Xỉu", "do_tin_cay": 78}
+def ai2_chan_le(history, totals):
+    if len(totals) < 5: return {"du_doan": "Tài", "do_tin_cay": 70}
+    chan = sum(1 for t in totals[-5:] if t % 2 == 0)
+    le = 5 - chan
+    if chan > le: return {"du_doan": "Xỉu", "do_tin_cay": 86}
+    else: return {"du_doan": "Tài", "do_tin_cay": 86}
 
-def algo_v2_repeat_break(history, totals, win_log):
-    if len(history) < 3:
-        return {"du_doan": "Đang học cầu...", "do_tin_cay": 0}
-    if history[-1] == history[-2]:
-        return {"du_doan": history[-1], "do_tin_cay": 83}
-    return {"du_doan": "Tài" if history[-1] == "Xỉu" else "Xỉu", "do_tin_cay": 79}
+def ai3_trung_binh(history, totals):
+    if len(totals) < 5: return {"du_doan": "Tài", "do_tin_cay": 70}
+    avg = statistics.mean(totals[-5:])
+    if avg > 10.8: return {"du_doan": "Tài", "do_tin_cay": 98}
+    elif avg < 10.2: return {"du_doan": "Xỉu", "do_tin_cay": 99}
+    else: return {"du_doan": "Tài" if totals[-1] >= 11 else "Xỉu", "do_tin_cay": 80}
 
-def algo_v3_sumtrend(history, totals, win_log):
-    if len(totals) < 3:
-        return {"du_doan": "Đang khởi động...", "do_tin_cay": 0}
-    avg = sum(totals[-3:]) / 3
-    trend = "Tài" if avg > 10.5 else "Xỉu"
-    return {"du_doan": trend, "do_tin_cay": 85}
+def ai4_bien_dong(history, totals):
+    if len(totals) < 4: return {"du_doan": "Tài", "do_tin_cay": 70}
+    diff = totals[-1] - totals[-3]
+    if diff > 2: return {"du_doan": "Tài", "do_tin_cay": 90}
+    elif diff < -2: return {"du_doan": "Xỉu", "do_tin_cay": 100}
+    else: return {"du_doan": "Tài" if totals[-1] >= 11 else "Xỉu", "do_tin_cay": 78}
 
-def algo_v4_balance(history, totals, win_log):
-    count_tai = history.count("Tài")
-    count_xiu = history.count("Xỉu")
-    if abs(count_tai - count_xiu) > 3:
-        # nếu lệch, dự đoán đảo chiều cho cân bằng
-        return {"du_doan": "Tài" if count_tai < count_xiu else "Xỉu", "do_tin_cay": 87}
-    return {"du_doan": history[-1] if len(history)>0 else "Tài", "do_tin_cay": 82}
+def ai5_cau_day(history, totals):
+    if len(history) < 5: return {"du_doan": "Tài", "do_tin_cay": 70}
+    last = history[-1]
+    count = 0
+    for h in reversed(history):
+        if h == last: count += 1
+        else: break
+    if count >= 4: return {"du_doan": "Xỉu" if last == "Tài" else "Tài", "do_tin_cay": 93}
+    else: return {"du_doan": last, "do_tin_cay": 80}
 
-def algo_v5_truebalance(history, totals, win_log):
-    if len(history) < 3:
-        return {"du_doan": "Đang học cầu...", "do_tin_cay": 0}
-    last3 = list(history)[-3:]
-    win_rate = win_log.count(True) / max(1, len(win_log))
-    if all(h == last3[0] for h in last3):
-        return {"du_doan": last3[0], "do_tin_cay": round(94 + win_rate * 3, 1)}
-    if len(totals) >= 2 and abs(totals[-1] - totals[-2]) >= 3:
-        trend = "Tài" if totals[-1] > 10.5 else "Xỉu"
-        return {"du_doan": trend, "do_tin_cay": round(88 + win_rate * 6, 1)}
-    return {"du_doan": "Tài" if win_rate < 0.5 else "Xỉu", "do_tin_cay": round(77 + win_rate * 15, 1)}
-
-def algo_v6_wave(history, totals, win_log):
-    if len(history) < 5:
-        return {"du_doan": "Đang chờ dữ liệu...", "do_tin_cay": 0}
-    pattern = history[-5:]
-    if pattern.count("Tài") == 3:
-        return {"du_doan": "Tài", "do_tin_cay": 90}
-    if pattern.count("Xỉu") == 3:
-        return {"du_doan": "Xỉu", "do_tin_cay": 90}
-    return {"du_doan": "Tài" if (totals and totals[-1] > 11) else "Xỉu", "do_tin_cay": 80}
-
-def algo_v7_pentter(history, totals, win_log):
-    if len(history) < 6:
-        return {"du_doan": "Đang học cầu...", "do_tin_cay": 0}
-    last6 = history[-6:]
-    pattern = "".join("T" if x == "Tài" else "X" for x in last6)
-    if pattern in ["TTTTTT", "XXXXXX"]:
-        return {"du_doan": last6[-1], "do_tin_cay": 95}
-    elif pattern.endswith("TXTXTX"):
-        return {"du_doan": "Tài", "do_tin_cay": 88}
-    elif pattern.endswith("XTXTXT"):
-        return {"du_doan": "Xỉu", "do_tin_cay": 88}
+def ai6_nhip_dao(history, totals):
+    if len(history) < 6: return {"du_doan": "Tài", "do_tin_cay": 70}
+    seq = "".join("T" if h == "Tài" else "X" for h in history[-6:])
+    if seq.endswith("TXTX") or seq.endswith("XTXT"):
+        return {"du_doan": "Tài" if seq[-1] == "X" else "Xỉu", "do_tin_cay": 91}
     return {"du_doan": history[-1], "do_tin_cay": 80}
 
-def algo_v8_adapt_winrate(history, totals, win_log):
-    win_rate = win_log.count(True) / max(1, len(win_log))
-    if win_rate < 0.5:
-        trend = "Tài"
-    elif win_rate > 0.7:
-        trend = "Xỉu"
-    else:
-        trend = "Tài" if (totals and totals[-1] > 11) else "Xỉu"
-    return {"du_doan": trend, "do_tin_cay": round(75 + win_rate * 25, 1)}
+def ai7_lech_tong(history, totals):
+    if len(totals) < 5: return {"du_doan": "Tài", "do_tin_cay": 35}
+    avg = statistics.mean(totals[-5:])
+    current = totals[-1]
+    if current > avg + 1: return {"du_doan": "Xỉu", "do_tin_cay": 75}
+    elif current < avg - 1: return {"du_doan": "Tài", "do_tin_cay": 83}
+    else: return {"du_doan": history[-1], "do_tin_cay": 78}
 
-def algo_v9_combo(history, totals, win_log):
-    if len(history) < 4 or len(totals) < 4:
-        return {"du_doan": "Đang khởi tạo...", "do_tin_cay": 0}
-    avg = sum(totals[-4:]) / 4
-    trend = "Tài" if avg > 10 else "Xỉu"
-    if history[-1] == trend:
-        return {"du_doan": trend, "do_tin_cay": 91}
-    return {"du_doan": trend, "do_tin_cay": 84}
+def ai8_chan_le_cau(history, totals):
+    if len(totals) < 5: return {"du_doan": "Tài", "do_tin_cay": 70}
+    seq = [t % 2 for t in totals[-5:]]
+    if all(s == 0 for s in seq): return {"du_doan": "Xỉu", "do_tin_cay": 91}
+    if all(s == 1 for s in seq): return {"du_doan": "Tài", "do_tin_cay": 93}
+    return {"du_doan": "Tài" if seq[-1] == 0 else "Xỉu", "do_tin_cay": 80}
 
-def algo_v10_dynamic(history, totals, win_log):
-    if len(history) < 8:
-        return {"du_doan": "Đang thu thập dữ liệu...", "do_tin_cay": 0}
-    last8 = history[-8:]
-    count_t = last8.count("Tài")
-    count_x = last8.count("Xỉu")
-    if count_t > count_x:
-        return {"du_doan": "Tài", "do_tin_cay": 89}
-    elif count_x > count_t:
-        return {"du_doan": "Xỉu", "do_tin_cay": 89}
-    else:
-        trend = "Tài" if (totals and totals[-1] > 11) else "Xỉu"
-        return {"du_doan": trend, "do_tin_cay": 83}
+def ai9_swing_ai(history, totals):
+    if len(totals) < 6: return {"du_doan": "Tài", "do_tin_cay": 70}
+    swing = max(totals[-6:]) - min(totals[-6:])
+    if swing >= 6: return {"du_doan": "Tài", "do_tin_cay": 90}
+    elif swing <= 2: return {"du_doan": "Xỉu", "do_tin_cay": 88}
+    else: return {"du_doan": "Tài" if totals[-1] >= 11 else "Xỉu", "do_tin_cay": 80}
 
-# danh sách thuật toán (deterministic)
+def ai10_cau_ngan(history, totals):
+    if len(history) < 6: return {"du_doan": "Tài", "do_tin_cay": 74}
+    last6 = history[-6:]
+    if last6.count("Tài") == 3:
+        return {"du_doan": "Tài" if last6[-1] == "Xỉu" else "Xỉu", "do_tin_cay": 77}
+    return {"du_doan": history[-1], "do_tin_cay": 78}
+
+def ai11_trend(history, totals):
+    if len(totals) < 5: return {"du_doan": "Tài", "do_tin_cay": 70}
+    diff = [totals[i] - totals[i - 1] for i in range(-1, -5, -1)]
+    pos = sum(1 for d in diff if d > 0)
+    neg = sum(1 for d in diff if d < 0)
+    if pos >= 3: return {"du_doan": "Tài", "do_tin_cay": 65}
+    if neg >= 3: return {"du_doan": "Xỉu", "do_tin_cay": 10}
+    return {"du_doan": history[-1], "do_tin_cay": 80}
+
+def ai12_median_ai(history, totals):
+    if len(totals) < 5: return {"du_doan": "Tài", "do_tin_cay": 70}
+    median = statistics.median(totals[-5:])
+    if median > 10.5: return {"du_doan": "Tài", "do_tin_cay": 84}
+    else: return {"du_doan": "Xỉu", "do_tin_cay": 86}
+
+def ai13_stable(history, totals):
+    if len(history) < 6: return {"du_doan": "Tài", "do_tin_cay": 70}
+    stable = all(h == history[-1] for h in history[-3:])
+    if stable: return {"du_doan": history[-1], "do_tin_cay": 93}
+    else: return {"du_doan": "Tài" if history[-1] == "Xỉu" else "Xỉu", "do_tin_cay": 82}
+
+def ai14_balance(history, totals):
+    t = history.count("Tài")
+    x = history.count("Xỉu")
+    if t > x: return {"du_doan": "Xỉu", "do_tin_cay": 67}
+    elif x > t: return {"du_doan": "Tài", "do_tin_cay": 40}
+    else: return {"du_doan": history[-1], "do_tin_cay": 80}
+
+def ai15_even_weight(history, totals):
+    even = sum(1 for t in totals[-8:] if t % 2 == 0)
+    if even >= 6: return {"du_doan": "Xỉu", "do_tin_cay": 60}
+    if even <= 2: return {"du_doan": "Tài", "do_tin_cay": 50}
+    return {"du_doan": "Tài" if totals[-1] >= 11 else "Xỉu", "do_tin_cay": 89}
+
+def ai16_recent_shift(history, totals):
+    if len(totals) < 4: return {"du_doan": "Tài", "do_tin_cay": 70}
+    if (totals[-1] > totals[-2] < totals[-3]) or (totals[-1] < totals[-2] > totals[-3]):
+        return {"du_doan": "Tài" if totals[-1] < 10 else "Xỉu", "do_tin_cay": 67}
+    return {"du_doan": "Tài" if totals[-1] >= 11 else "Xỉu", "do_tin_cay": 80}
+
+def ai17_gradient_ai(history, totals):
+    if len(totals) < 5: return {"du_doan": "Tài", "do_tin_cay": 70}
+    grad = (totals[-1] - totals[-5]) / 4
+    if grad > 0.6: return {"du_doan": "Tài", "do_tin_cay": 90}
+    elif grad < -0.6: return {"du_doan": "Xỉu", "do_tin_cay": 90}
+    return {"du_doan": "Tài" if totals[-1] >= 11 else "Xỉu", "do_tin_cay": 88}
+
+def ai18_wave_ai(history, totals):
+    if len(history) < 6: return {"du_doan": "Tài", "do_tin_cay": 50}
+    seq = "".join("T" if h == "Tài" else "X" for h in history[-6:])
+    if "TXT" in seq: return {"du_doan": "Tài", "do_tin_cay": 89}
+    if "XTX" in seq: return {"du_doan": "Xỉu", "do_tin_cay": 59}
+    return {"du_doan": history[-1], "do_tin_cay": 80}
+
+def ai19_weight_mix(history, totals):
+    if len(history) < 6 or len(totals) < 6: return {"du_doan": "Tài", "do_tin_cay": 70}
+    avg = statistics.mean(totals[-6:])
+    last = history[-1]
+    if avg >= 11 and last == "Tài": return {"du_doan": "Tài", "do_tin_cay": 94}
+    if avg <= 10 and last == "Xỉu": return {"du_doan": "Xỉu", "do_tin_cay": 64}
+    return {"du_doan": "Tài" if avg > 10.5 else "Xỉu", "do_tin_cay": 84}
+
+def ai20_final_balance(history, totals):
+    if len(history) < 10: return {"du_doan": "Tài", "do_tin_cay": 71}
+    last5 = history[-5:]
+    t = last5.count("Tài")
+    x = last5.count("Xỉu")
+    avg = statistics.mean(totals[-5:])
+    if t > x and avg > 11: return {"du_doan": "Tài", "do_tin_cay": 96}
+    elif x > t and avg < 10: return {"du_doan": "Xỉu", "do_tin_cay": 55}
+    else: return {"du_doan": "Tài" if totals[-1] >= 11 else "Xỉu", "do_tin_cay": 81}
+
+# =========================================================
+# 🔹 AI THONG MINH 2025
+# =========================================================
 algos = [
-    algo_v1_basic, algo_v2_repeat_break, algo_v3_sumtrend, algo_v4_balance,
-    algo_v5_truebalance, algo_v6_wave, algo_v7_pentter, algo_v8_adapt_winrate,
-    algo_v9_combo, algo_v10_dynamic
+    ai1_tanso, ai2_chan_le, ai3_trung_binh, ai4_bien_dong,
+    ai5_cau_day, ai6_nhip_dao, ai7_lech_tong, ai8_chan_le_cau,
+    ai9_swing_ai, ai10_cau_ngan, ai11_trend, ai12_median_ai,
+    ai13_stable, ai14_balance, ai15_even_weight, ai16_recent_shift,
+    ai17_gradient_ai, ai18_wave_ai, ai19_weight_mix, ai20_final_balance
 ]
 
 # =========================================================
@@ -153,7 +209,7 @@ def get_taixiu_data():
     return None
 
 # =========================================================
-# 🔹 Thread cập nhật dữ liệu + chọn thuật toán tốt nhất (NO RANDOM)
+# 🔹 Thread cập nhật dữ liệu + chọn thuật toán tốt nhất
 # =========================================================
 def background_updater():
     global last_data
@@ -167,36 +223,20 @@ def background_updater():
                 history.append(ketqua)
                 totals.append(tong)
 
-                # chạy tất cả thuật toán (deterministic) và chọn best theo do_tin_cay
                 results = []
                 for algo in algos:
                     try:
-                        r = algo(history, totals, win_log)
-                        # đảm bảo cấu trúc đúng
-                        if isinstance(r, dict) and "du_doan" in r and "do_tin_cay" in r:
-                            results.append((algo, r))
+                        r = algo(history, totals)
+                        if "du_doan" in r and "do_tin_cay" in r:
+                            results.append((algo.__name__, r))
                     except Exception as e:
-                        # nếu 1 thuật toán lỗi thì bỏ qua (log để debug)
-                        print(f"[⚠️] Algo {algo.__name__} lỗi: {e}")
+                        print(f"[⚠️] Lỗi {algo.__name__}: {e}")
 
-                # lọc những dự đoán đã sẵn sàng (do_tin_cay>0 và du_doan là Tài/Xỉu)
-                ready = [item for item in results if item[1]["do_tin_cay"] and item[1]["du_doan"] in ("Tài","Xỉu")]
-
-                if ready:
-                    # chọn thuật toán có do_tin_cay lớn nhất (deterministic)
-                    best_algo, best_res = max(ready, key=lambda x: x[1]["do_tin_cay"])
-                else:
-                    # fallback: dùng algo_v5_truebalance nếu chưa có algo sẵn sàng
-                    best_algo = algo_v5_truebalance
-                    best_res = best_algo(history, totals, win_log)
-
+                best_algo, best_res = max(results, key=lambda x: x[1]["do_tin_cay"])
                 du_doan = best_res["du_doan"]
                 tin_cay = best_res["do_tin_cay"]
-                pattern = "".join("T" if h == "Tài" else "X" for h in history)
 
-                # ghi log đúng/sai (chỉ khi dự đoán là rõ ràng)
-                if len(history) > 1 and du_doan in ("Tài","Xỉu"):
-                    win_log.append(du_doan == ketqua)
+                win_log.append(du_doan == ketqua)
 
                 last_data = {
                     "phien": phien,
@@ -207,44 +247,41 @@ def background_updater():
                     "ketqua": ketqua,
                     "du_doan": du_doan,
                     "do_tin_cay": tin_cay,
-                    "pattern": pattern,
-                    "algo": best_algo.__name__,
+                    "pattern": "".join("T" if h == "Tài" else "X" for h in history),
+                  
                     "id": "biios2502"
                 }
 
-                print(f"[✅] Phiên {phien} | 🎲 {dice} ({tong}) → {ketqua} | 🔮 {best_algo.__name__} → {du_doan} ({tin_cay}%) | Pattern: {pattern}")
+                print(f"[✅] Phiên {phien} | 🎲 {dice} ({tong}) → {ketqua} | 🔮 {best_algo} → {du_doan} ({tin_cay}%)")
                 last_phien = phien
         else:
             print("[⚠️] Không lấy được dữ liệu, chờ 5s...")
         time.sleep(5)
 
 # =========================================================
-# 🔹 API Endpoint 1: dữ liệu đầy đủ
+# 🔹 API Endpoint
 # =========================================================
 @app.route("/api/taixiu", methods=["GET"])
-def api_sunwin():
+def api_taixiu():
     return jsonify(last_data)
 
-# =========================================================
-# 🔹 API Endpoint 2: pattern soi cầu Pentter cho JS
-# =========================================================
 @app.route("/api/taixiu/pattern", methods=["GET"])
 def api_pattern():
     pattern = "".join("T" if h == "Tài" else "X" for h in history)
     return jsonify({
         "pattern": pattern,
         "length": len(pattern),
-        "last5": pattern[-5:],
-        "last10": pattern[-10:],
-        "du_doan": last_data.get("du_doan"),
-        "do_tin_cay": last_data.get("do_tin_cay"),
-        "phien": last_data.get("phien"),
-        "algo": last_data.get("algo")
+        "du_doan": last_data["du_doan"],
+        "do_tin_cay": last_data["do_tin_cay"],
+        
     })
 
 # =========================================================
-# 🚀 Khởi chạy Flask Server
+# 🔹 Chạy nền
 # =========================================================
 if __name__ == "__main__":
+    # Khởi động luồng nền để cập nhật dữ liệu liên tục
     threading.Thread(target=background_updater, daemon=True).start()
+    
+    # Chạy Flask API thật (dùng cho Termux, Pydroid, VPS đều được)
     app.run(host="0.0.0.0", port=5000)
