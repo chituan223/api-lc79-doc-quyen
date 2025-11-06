@@ -249,7 +249,7 @@ def background_updater():
                     "do_tin_cay": tin_cay,
                     "pattern": "".join("T" if h == "Tài" else "X" for h in history),
                   
-                    "id": "biios2502"
+                    "id": "Độc quyền "
                 }
 
                 print(f"[✅] Phiên {phien} | 🎲 {dice} ({tong}) → {ketqua} | 🔮 {best_algo} → {du_doan} ({tin_cay}%)")
