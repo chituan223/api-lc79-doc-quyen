@@ -7,11 +7,11 @@ from collections import deque
 app = Flask(__name__)
 
 # =========================================================
-# 💾 Bộ nhớ tạm
+# 💾 Bộ nhớ tạm – giữ VÔ HẠN PHIÊN (không xóa)
 # =========================================================
-history = deque(maxlen=100)
-totals = deque(maxlen=100)
-win_log = deque(maxlen=100)
+history = deque()  # không giới hạn maxlen
+totals = deque()
+win_log = deque()
 
 last_data = {
     "phien": None,
@@ -37,11 +37,10 @@ def algo_pentter_ultrahybrid_v44(history, totals, win_log):
     🔹 Độ tin cậy 75–97%
     """
     if len(history) < 2:
-        # Giai đoạn khởi động – chưa đủ dữ liệu
         return {"du_doan": "Đang thu thập...", "do_tin_cay": 0.0}
 
     win_rate = win_log.count(True) / max(len(win_log), 1)
-    recent = list(history)[-max(6, len(history)):]  # lấy 6 gần nhất nếu có
+    recent = list(history)[-6:] if len(history) >= 6 else list(history)
     pattern = "".join("T" if h == "Tài" else "X" for h in recent)
     last = recent[-1]
 
@@ -146,7 +145,7 @@ def background_updater():
 # =========================================================
 # 🔹 API Endpoint 1: dữ liệu đầy đủ
 # =========================================================
-@app.route("/api/taixiu/sunwin", methods=["GET"])
+@app.route("/api/taixiu", methods=["GET"])
 def api_sunwin():
     return jsonify(last_data)
 
