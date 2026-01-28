@@ -6,8 +6,9 @@ app = Flask(__name__)
 # ================== API NGUỒN (DỮ LIỆU THẬT) ==================
 SOURCE_API = "https://api-free--aki6cbg.replit.app/lc79/hu/ls"
 
-# ================== BẢNG THUẬT TOÁN (GIỮ NGUYÊN – CHƯA DÙNG) ==================
-# T = Tài | X = Xỉu
+HISTORY_LIMIT = 20
+
+# ================== BẢNG THUẬT TOÁN (MÀY CỨ THAY / THÊM) ==================
 prediction_table = {
 "TTTTTTTTTTXT": "Tài",
 "TTTTTTTTTTXT": "Tài",
@@ -647,16 +648,12 @@ prediction_table = {
 "XXTTXTXXTTTTX": "Xỉu",
 }
 
-# số phiên dùng để tính tỷ lệ (THẬT)
-HISTORY_LIMIT = 20
-
-
 # ================== API ==================
 @app.route("/")
 def home():
     return jsonify({
         "status": "ok",
-        "msg": "LC79 API running"
+        "msg": "ok"
     })
 
 
@@ -666,37 +663,50 @@ def api_lc79():
         res = requests.get(SOURCE_API, timeout=10)
         raw = res.json()
 
-        data = raw["data"]
-        newest = data[0]
+        data = raw.get("data", [])
+        if not data:
+            raise Exception("Không có dữ liệu")
+
+        # ===== SẮP XẾP PHIÊN ĐÚNG =====
+        data_sorted = sorted(data, key=lambda x: x["Phien"])
+
+        # ===== PHIÊN MỚI NHẤT =====
+        newest = data_sorted[-1]
 
         # ===== XÚC XẮC THẬT =====
-        x1 = newest["Xuc_xac_1"]
-        x2 = newest["Xuc_xac_2"]
-        x3 = newest["Xuc_xac_3"]
+        x1 = int(newest["Xuc_xac_1"])
+        x2 = int(newest["Xuc_xac_2"])
+        x3 = int(newest["Xuc_xac_3"])
 
         tong = x1 + x2 + x3
         ket = "Tài" if tong >= 11 else "Xỉu"
 
-        # ===== TẠO LỊCH SỬ TÀI / XỈU TỪ DỮ LIỆU THẬT =====
+        # ===== LỊCH SỬ T / X (CŨ → MỚI) =====
         history = []
-        for item in data[:HISTORY_LIMIT]:
-            t = item["Xuc_xac_1"] + item["Xuc_xac_2"] + item["Xuc_xac_3"]
+        for item in data_sorted[-HISTORY_LIMIT:]:
+            t = int(item["Xuc_xac_1"]) + int(item["Xuc_xac_2"]) + int(item["Xuc_xac_3"])
             history.append("T" if t >= 11 else "X")
 
-        # ===== TÍNH TỶ LỆ THẬT (KHÔNG RANDOM) =====
-        tai_count = history.count("T")
-        xiu_count = history.count("X")
-        total = len(history)
+        # ===== CẦU 12 KÝ TỰ =====
+        cau = "".join(history[-12:])
 
-        if tai_count >= xiu_count:
-            du_doan = "Tài"
-            do_tin_cay = round((tai_count / total) * 100)
+        # ================== THUẬT TOÁN ==================
+        if cau in prediction_table:
+            # TRÚNG BẢNG THUẬT TOÁN
+            du_doan = prediction_table[cau]
+            do_tin_cay = 85
         else:
-            du_doan = "Xỉu"
-            do_tin_cay = round((xiu_count / total) * 100)
+            # FALLBACK: TỶ LỆ THẬT
+            tai_count = history.count("T")
+            xiu_count = history.count("X")
+            total = len(history)
 
-        # cầu chỉ để hiển thị – KHÔNG dự đoán
-        cau = "".join(history[:12])
+            if tai_count >= xiu_count:
+                du_doan = "Tài"
+                do_tin_cay = round((tai_count / total) * 100)
+            else:
+                du_doan = "Xỉu"
+                do_tin_cay = round((xiu_count / total) * 100)
 
         return jsonify({
             "phien": newest["Phien"],
